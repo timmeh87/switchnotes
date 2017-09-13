@@ -1,0 +1,109 @@
+Reply to a post in https://github.com/dekuNukem/Nintendo_Switch_Reverse_Engineering/issues/7
+RE: finding out how the "Find Controller" feature works
+
+The nintendo switch, as of (9/13/2017) seems to have some bugs in the "find controller" feature
+This might also be because my fake-joycon hardware is returning all-zeros for some EEPROM reads still
+Whatever the cause, the "Find Controllers" feature on the switch menu refused to let me into the actual
+"find controllers" screen while my fake-joycon was paired, and both real-joycons were attached to the sides of 
+the console.
+
+{editors note: I thought about it, it might be possible that Im accidentally telling the switch that I am physically
+connected to it instead of communicating over bluetooth. so even though the console knows the fake-joycon is connected, it also thinks
+that it is *physically* connected, even though that would mean 3 joycons are physically connected. Regardless of what the bug is,
+way to go nintendo}
+
+I was only able to activate "Find Controllers" by physically removing the right-hand joycon from the console.
+Now the console is allowing me to find any one of the 3 controllers, 
+- one real, attached L-joycon, which rumbles while attached to the console (?!)
+- one real, detached R-joycon that rumbles
+- my fake-joycon, which receives these messages (just a rumble pattern)
+- **NOTE THIS IS FOR THE PRO CONTROLLER. JOYCON GETS DIFFERENT RUMBLE PATTERN **
+
+0x10 0x00 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x01 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x02 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x03 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x04 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x05 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x06 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x07 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x08 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x09 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x0A 0xBA 0x18 0x60 0x40 0xBA 0x18 0x60 0x40 
+0x10 0x0B 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x0C 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x0D 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x0E 0x04 0x01 0x40 0x40 0x04 0x01 0x40 0x40 
+0x10 0x0F 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x00 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x01 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x02 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x03 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x04 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x05 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+0x10 0x06 0x04 0xBF 0x40 0x40 0x04 0xBF 0x40 0x40 
+
+- joycon sample rumble pattern
+
+0x10 0x08 0x04 0x9B 0x40 0x40 0x04 0x9B 0x40 0x40 
+
+
+Now for some tricks. If I hard-reset my fake-joycon, it will re-establish a previous paired connection with the switch on bootup.
+It will go grey in the "Find" menu until it has reconnected, at which point it re-appears.
+
+I changed the code so the fake-joycon will NOT reconnect on bootup. Now it remains grey in the menu, and when I click on it, the
+player lights scan back and forth (on the find menu screen), as if it is "searching" for the controller. It however, never attempts to 
+bluetooth-connect to the fake-joycon. It just searches forever. searching. searching.
+
+I turned off the "power" on the disconnected R-joycon. (by  pressing the sync button) It also went grey in the "Find" menu. Now it 
+also has the player lights scanning when I click on they grey icon. The switch never finds it either. It just "searches" forever, 
+you cannoteven cancel the searching without exiting the "Find" menu.
+
+I later found out this is because of a BUG: if you start searching for a joycon that for some reason will never reply, and then begin searching 
+for a joycon that WILL reply, the first operation seemingling blocks forever and neither joycon will be found. Presumbably any
+amount joycons after the first non-responder will not be found
+
+Anyways, without having the fake-joycon connected, pressing the sync button on a detached joycon will turn off the green LED
+and grey out the joycon in the menu. This appears to be the "power turning off" but I suspect that it is not. 
+The reason is that if you click on the grey controller on the menu, it suddenly springs back to life!
+But if you click on my fake joycon when it is grey/diconnected.... nothing ever happens, and no connection attempt is made.
+So this is why I suspect that a greyed out joycon is actually just "suspended" and not actually off. It is maybe in a lower
+power mode where it does not read the buttons or send any reports, but it remains connected and waits for a magic
+report from the console?
+
+Another reason I suspect this, is that if I simutaneously press the "sync" button on a real-joycon (to power it DOWN), and reboot my fake-joycon, 
+they both go grey in the "Find" menu. However, when I leave the menu and come back, the fake-joycon has disappeared, 
+but the real one is still there. meanwhile, nothing has attempted to connect to my fake-joycon. So it seems the sync button does not
+power the joycon completely down. Which makes sense, the radio must at least have power for this to work.
+
+I have many questions.
+
+- does the bluetooth connection actually close down why you press sync? I assume it must at some point eventually, because if you sleep the console, 
+normally disconnects the bt connection to the fake-joycon. However you can still "wake up" missing controllers using the "Find" menu. 
+This would appear to be the console re-connecting over bluetooth.
+
+- does the switch console reconnect to disconnected (but paired) joycons when it is trying to find them? How often? Why does it not try to 
+connect to the fake-joycon then? 
+
+- Or do the joycons initiate the connection?
+
+- When something goes gray on the "Find" menu, can it do so in different ways? for eample, diconnection event, sleep message, etc?
+
+
+So Im still scratching my head about how a greyed out controller can be awoken from the switch menu, as I have not been able to
+a) make my fake-joycon appear grey on the menu while still being connected over bluetooth
+b) receive any communication (connection attempt) from the console while NOT being connected over bluetooth
+
+At least one of these things would have to happen. Or maybe a third thing? Im really not sure at this point. 
+
+
+
+Again, it is very slightly possible something is working incorrectly because I have not returned valid data from the EEPROM reads when
+I pair up ininitially.
+
+For example, one thing that the EEPROM returns is the BDADDR of the joycon right? Well maybe if thats all 0's the switch wont 
+have any hardware address to connect to, due to programming choices on their end.
+
+thats all for today
+
+
